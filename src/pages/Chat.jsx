@@ -21,62 +21,52 @@ import FeedbackDrawer from '../components/FeedbackDrawer';
 
 
 const SequentialResponse = ({ gurujiJson, onComplete, animate = false }) => {
-    const p1 = gurujiJson?.para1 || '';
-    const p2 = gurujiJson?.para2 || '';
-    const p3 = (gurujiJson?.para3 || '') + "<br><br>" + (gurujiJson?.follow_up || gurujiJson?.followup || "🤔 What's Next?");
+    const paras = [
+        gurujiJson?.para1 || '',
+        gurujiJson?.para2 || '',
+        (gurujiJson?.para3 || '') + "<br><br>" + (gurujiJson?.follow_up || gurujiJson?.followup || "🤔 What's Next?")
+    ].filter(p => p.trim() !== '');
 
-    const [step, setStep] = useState(animate ? 0 : 4);
-    const [visibleParas, setVisibleParas] = useState(animate ? [p1] : [p1, p2, p3]);
+    const [visibleCount, setVisibleCount] = useState(animate ? 0 : paras.length);
+    const [isBuffering, setIsBuffering] = useState(animate ? true : false);
     const textEndRef = useRef(null);
 
-    const scrollToText = () => {
-        if (animate) {
-            textEndRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
+    const scrollToBottom = () => {
+        textEndRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
     useEffect(() => {
-        if (!gurujiJson || !animate) return;
-
-        const p1 = gurujiJson.para1 || '';
-        const p2 = gurujiJson.para2 || '';
-        const p3 = (gurujiJson.para3 || '') + "<br><br>" + (gurujiJson.follow_up || gurujiJson.followup || "🤔 What's Next?");
-
-        // Animation Sequence:
-        const t1 = setTimeout(() => {
-            setStep(1);
-            scrollToText();
-        }, 2500);
-
-        const t2 = setTimeout(() => {
-            setStep(2);
-            setVisibleParas([p1, p2]);
-            scrollToText();
-        }, 5000);
-
-        const t3 = setTimeout(() => {
-            setStep(3);
-            scrollToText();
-        }, 8000);
-
-        const t4 = setTimeout(() => {
-            setStep(4);
-            setVisibleParas([p1, p2, p3]);
-            scrollToText();
+        if (!animate) {
             if (onComplete) onComplete();
-        }, 11000);
+            return;
+        }
 
-        return () => {
-            clearTimeout(t1);
-            clearTimeout(t2);
-            clearTimeout(t3);
-            clearTimeout(t4);
+        let currentIdx = 0;
+
+        const showNext = () => {
+            if (currentIdx >= paras.length) {
+                setIsBuffering(false);
+                if (onComplete) onComplete();
+                return;
+            }
+
+            // Buffering period
+            setIsBuffering(true);
+            scrollToBottom();
+
+            setTimeout(() => {
+                setIsBuffering(false);
+                setVisibleCount(prev => prev + 1);
+                currentIdx++;
+                scrollToBottom();
+
+                // Wait a bit before starting next buffer or finishing
+                setTimeout(showNext, 2000);
+            }, 3000); // 3 seconds buffering per para
         };
-    }, [gurujiJson, animate]);
 
-    useEffect(() => {
-        if (animate) scrollToText();
-    }, [visibleParas, step]);
+        showNext();
+    }, [gurujiJson, animate]);
 
     const bubbleSx = {
         p: 2,
@@ -92,7 +82,7 @@ const SequentialResponse = ({ gurujiJson, onComplete, animate = false }) => {
 
     return (
         <Box sx={{ width: '100%' }}>
-            {visibleParas.map((para, idx) => (
+            {paras.slice(0, visibleCount).map((para, idx) => (
                 <Box key={idx} sx={bubbleSx}>
                     {idx === 0 && (
                         <Typography sx={{
@@ -114,7 +104,7 @@ const SequentialResponse = ({ gurujiJson, onComplete, animate = false }) => {
                 </Box>
             ))}
 
-            {(step === 1 || step === 3) && (
+            {isBuffering && (
                 <Box sx={{ display: 'flex', gap: 1, mt: 1, mb: 2, ml: 1 }}>
                     <Box sx={{ width: 6, height: 6, bgcolor: '#ff8338', borderRadius: '50%', animation: 'bounce 1s infinite' }} />
                     <Box sx={{ width: 6, height: 6, bgcolor: '#ff8338', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }} />
@@ -438,7 +428,7 @@ const Chat = () => {
                 rawResponse: res.data,
                 mayaJson: maya_json,
                 gurujiJson: guruji_json,
-                animate: true
+                animating: true
             }]);
         } catch (err) {
             console.error("Chat Error:", err);
@@ -538,12 +528,11 @@ const Chat = () => {
                                 <Box sx={{ flex: 1, maxWidth: '85%' }}>
                                     <SequentialResponse
                                         gurujiJson={msg.gurujiJson}
-                                        animate={msg.animate}
-                                        onComplete={() => { }}
+                                        animate={msg.animating}
                                     />
                                     {/* JSON Output View for Guruji Multi-bubble */}
                                     {(msg.gurujiJson || msg.mayaJson) && (
-                                        <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed rgba(255,255,255,0.2)' }}>
+                                        <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
                                             <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(0,0,0,0.4)', mb: 0.5, textTransform: 'uppercase' }}>
                                                 Debug Data:
                                             </Typography>
