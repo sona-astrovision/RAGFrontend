@@ -20,7 +20,7 @@ const Login = () => {
         }
     }, [navigate]);
 
-    const handleMobileSubmit = async (e) => {
+    const handleMobileSubmit = async(e) => {
         if (e) e.preventDefault();
         setError('');
 
